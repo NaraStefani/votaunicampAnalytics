@@ -1,32 +1,47 @@
 ---
-title: "Vota Unicamp!"
-author: "Benilton S Carvalho"
+title: "Pojeto ME524 - Vota UNICAMP"
+author: 'Nara Stefani, Ricardo Corder, Robson Borges, Rodrigo Fadel, Tomás Weguelin,
+  Victória Angeli e Vinícius Ota '
 output: html_document
 ---
+##Introdução 
+  Nos últimos meses, a Universidade Estadual de Campinas (UNICAMP) foi tomada pelo movimento grevista, que protesta contra o anúncio de corte de verbas, por um programa de cotas étnico-raciais e permanência estudantil.
+  
+  Em cada instituto, são realizadas assembleias estudantis, nas quais os alunos votam a favor ou contra a greve. Entretanto, muitos são os que não participam. Essa falta de adesão gera vários questionamentos sobre a representatividade desses votos.
+  
+  Em função disso, foi criado o site [votaunicamp](https://votaunicamp.herokuapp.com/), uma plataforma independente com o objetivo de tornar mais acessíveis o voto e as informações e oferecer um complemento democrático às assembleias da UNICAMP, onde os estudantes votam “Sim”, “Não” ou “Abstenho” em relação a ser a favor da greve.
+  
+  Neste site, também é possível colocar para votação aberta as pautas colocadas nas assembleias e postar opiniões e argumentos sobre os temas em pauta. Além disso, os usuários podem alterar seu votos: ao votar novamente, o voto anterior é alterado. Apenas alunos da UNICAMP podem votar.
 
-## Setup
+##Objetivo
 
-```{r input, message=FALSE}
-Sys.setlocale(locale='UTF-8')
+  Este trabalho tem como objetivo analisar estatisticamente sob diferentes ângulos os resultados presentes no já citado site *Vota* *UNICAMP*. O principal tópico a ser analisado é a comparação dos comportamentos dos estudantes de diferentes institutos e áreas de atuação (exatas, humanas ou biológicas) com relação ao posicionamento em relação à greve. Para isso, serão utilizados procedimentos estatísticos como testes de hipóteses e intervalos de confiança, além de gráficos, para melhor visualização dos dados, a serem mais detalhadamente explicados posteriormente.
+
+
+```{r input, message = FALSE, warning = FALSE, echo = F, include = F}
+#setup
+#install.packages("stringr")
 library(stringr)
+#install.packages("rvest")
 library(rvest)
+#install.packages("googleVis")
 library(googleVis)
+#install.packages("leaflet")
 library(leaflet)
-page = read_html('http://votaunicamp.herokuapp.com/results/', encoding='UTF-8')
+page = read_html('https://votaunicamp.herokuapp.com/prev_results/')
 tbl = html_table(page)[[2]]
 head(tbl)
 ```
 
+```{r format, warning = F,echo = F,include = F}
 ## Formatação de Dados
-
-```{r format}
-mytbl = data.frame(codigo=as.integer(str_extract(tbl$Curso, "^\\d+")),
-                   nivel=NA,
-                   curso=gsub("^(\\d+) - (.*)$", "\\2", tbl$Curso),
-                   total=tbl$Total,
-                   sim=as.integer(str_extract(tbl$Sim, "^\\d+")),
-                   nao=as.integer(str_extract(tbl$Não, "^\\d+")),
-                   abstencao=as.integer(str_extract(tbl$Abstenções, "^\\d+")))
+mytbl = data.frame(codigo = as.integer(str_extract(tbl$Curso, "^\\d+")),
+                   nivel = NA,
+                   curso = gsub("^(\\d+) - (.*)$", "\\2", tbl$Curso),
+                   total = tbl$Total,
+                   sim = as.integer(str_extract(tbl$Sim, "^\\d+")),
+                   nao = as.integer(str_extract(tbl$Não, "^\\d+")),
+                   abstencao = as.integer(str_extract(tbl$Abstenções, "^\\d+")))
 nivel = str_extract(mytbl$curso, "(Dou|Mes)[a-z]+")
 nivel[grepl("Mes", nivel)] = "Mestrado"
 nivel[grepl("Dou", nivel)] = "Doutorado"
@@ -37,44 +52,561 @@ mytbl$curso = gsub("(Mes|Dou).+ em (.*)$", "\\2", mytbl$curso)
 head(mytbl)
 ```
 
-## Gauge Plots
+####Para nossa análise, utilizamos a seguinte tabela:
 
-```{r plot_gauge}
+```{r warning = F, echo = F, include = F}
+institutos = rbind(data.frame(instituto = 'IMECC', codigo = c(1,2,28,29,51)),
+                   data.frame(instituto ='FEM', codigo = c(10,49)),
+                   data.frame(instituto = 'IFGW', codigo = c(108,4,40,56)),
+                   data.frame(instituto = 'FEEC', codigo = c(11,41)),
+                   data.frame(instituto = 'FEC', codigo = c(12,48)),
+                   data.frame(instituto = 'FEA', codigo = c(13,43)),
+                   data.frame(instituto = 'FCM', codigo = c(15,58,63)),
+                   data.frame(instituto = 'IFCH', codigo = c(16,19,44)),
+                   data.frame(instituto = 'IE', codigo = c(17,47)),
+                   data.frame(instituto = 'IEL', codigo = c(18,7,75)),
+                   data.frame(instituto = 'IA', codigo = c(22,26,64)),
+                   data.frame(instituto = 'FEF', codigo = c(27,45)),
+                   data.frame(instituto = 'IC', codigo = c(34,42,3)),
+                   data.frame(instituto = 'FEQ', codigo = c(39,9)),
+                   data.frame(instituto = 'IB', codigo = c(46,6)),
+                   data.frame(instituto = 'IQ', codigo = c(5,50)),
+                   data.frame(instituto = 'IG', codigo = c(53,55)),
+                   data.frame(instituto = 'FEAGRI', codigo = 8),
+                   data.frame(instituto = 'FE', codigo = 38))
+
+```
+
+```{r warning = F, echo = F, include = F}
+#Vamos mudar a aprensentação dos dados na tabela
+mytbl = merge(mytbl, institutos)
+mytbl = subset(mytbl, nivel == 'Graduacao')
+head(mytbl)
+```
+
+```{r warning = F, echo = F, include = F}
+area = rbind( data.frame(area = 'Exatas', codigo = c(1,2,28,29,51,10,49,108,4,40,56,11,41,
+                                                    12,48,13,43,34,42,3,39,9,5,50,53,
+                                                    55,8)),
+              data.frame(area = 'Humanas', codigo = c(16,19,44,17,47,18,7,75,22,26,64,38)),
+              data.frame(area = 'Biologicas',codigo = c(15,58,63,27,45,46,6)))
+```
+
+```{r warning=F,echo=F,include=F}
+#Vamos mudar a aprensentação dos dados na tabela incluindo as classificações de áreas .
+mytbl = merge(mytbl, area)
+mytbl = subset(mytbl, nivel=='Graduacao')
+head(mytbl)
+```
+
+```{r, echo=FALSE}
+#install.packages("knitr")
+library(knitr)
+kable(mytbl)
+```
+
+## Tamanho Mínimo da Amostra
+
+```{r tam_amostras, include=FALSE}
+#Amostra para o Imecc
+Total_Imecc<-1029
+EMM_Imecc<-seq(from= 0.01, to=0.05, by=0.01)
+Z_Alpha_Imecc<-1.96
+N_Imecc<- Total_Imecc/((4*(Total_Imecc-1)*((EMM_Imecc)^2/(Z_Alpha_Imecc)^2)+1))
+
+#Amostra para total da Unicamp
+Total_Unicamp<- 13312
+EMM_Unicamp<-seq(from= 0.01, to=0.05, by=0.01)
+Z_Alpha_Unicamp<-1.96
+N_Unicamp<- Total_Unicamp/((4*(Total_Unicamp-1)*((EMM_Unicamp)^2/(Z_Alpha_Unicamp)^2)+1))
+```
+
+Nesta primeira etapa, calculamos o quórum de pessoas mínimo necessário para que as assembleias realizadas na Universidade sejam representativas. Além disso, calculamos também as proporções de votos sim, não e abstenções. Dividimos esses resultados em duas tabelas, uma categorizada por institutos e outra por áreas como podemos ver a seguir:
+
+```{r warning=F, include=FALSE}
+#total de sim por institutp
+totsim=tapply(mytbl$sim,mytbl$instituto,sum)
+#total de votos de cada instituo
+totalinst=tapply(mytbl$total,mytbl$instituto,sum)
+#proporção de sim
+propsim=round(totsim/totalinst,digits = 2)
+
+#total de não por instituto
+totnao=tapply(mytbl$nao,mytbl$instituto,sum)
+#usaremos o total de votos no instituto,já calculado anteriormente com nome totalinst
+propnao=round(totnao/totalinst,digits=2)
+
+#total de abstenção por instituto
+totabs=tapply(mytbl$abstencao,mytbl$instituto,sum)
+#proporção de abstenção
+propabs=round(totabs/totalinst,digits = 2)
+
+
+#total de sim por área
+totsimArea=tapply(mytbl$sim,mytbl$area,sum)
+#total de votos de cada instituo
+totalArea=tapply(mytbl$total,mytbl$area,sum)
+#proporção de sim
+propsimArea=round(totsimArea/totalArea,digits = 2)
+
+#total de não por Área 
+totnaoArea=tapply(mytbl$nao,mytbl$area,sum)
+#usaremos o total de votos na área,já calculado anteriormente com nome totalArea
+propnaoArea=round(totnaoArea/totalArea,digits=2)
+
+#total de abstenção por instituto
+totabsArea=tapply(mytbl$abstencao,mytbl$area,sum)
+#proporção de abstenção
+propabsArea=round(totabsArea/totalArea,digits = 2)
+```
+
+```{r, include=FALSE}
+tam <- function(N, Z_alpha = 1.96, B = 0.05){
+  N / ((4*(N-1)*(B^2/(Z_alpha)^2)+1))
+}
+```
+
+```{r, include=FALSE}
+ic <- function(total, prop){
+  cbind(pmax(prop-qnorm(.975)*sqrt(1/(4*total)), 0), pmin(prop+qnorm(.975)*sqrt(1/(4*total)), 1))
+}
+```
+
+```{r, include=FALSE}
+#tabela com o número de alunos por instituto
+tabela_institutos = rbind(data.frame(instituto='IMECC', Alunos = 1029),
+                          data.frame(instituto='FEM', Alunos = 1236),
+                          data.frame(instituto='IFGW', Alunos = 624), 
+                          data.frame(instituto='FEEC', Alunos = 667),
+                          data.frame(instituto='FEC', Alunos = 724),
+                          data.frame(instituto='FEA', Alunos = 712),
+                          data.frame(instituto='FCM', Alunos = 1069),
+                          data.frame(instituto='IFCH', Alunos = 898),
+                          data.frame(instituto='IE', Alunos = 575),
+                          data.frame(instituto='IEL', Alunos = 552),
+                          data.frame(instituto='IA', Alunos = 623),
+                          data.frame(instituto='FEF', Alunos = 596),
+                          data.frame(instituto='IC', Alunos = 878),
+                          data.frame(instituto='FEQ', Alunos = 633),
+                          data.frame(instituto='IB', Alunos = 494),
+                          data.frame(instituto='IQ', Alunos = 656),
+                          data.frame(instituto='IG', Alunos = 452),
+                          data.frame(instituto='FEAGRI', Alunos = 426),
+                          data.frame(instituto='FE', Alunos = 468))
+
+```
+
+```{r, include=FALSE}
+#tabela geral com informações dos institutos
+tabela_geral = cbind(tabela_institutos, 
+                     amos_repr = round(tam(tabela_institutos$Alunos),0),
+                     total = totsim+totnao+totabs,
+                     tot_sim = totsim, 
+                     tot_nao = totnao, 
+                     tot_abs = totabs, 
+                     prop_sim = propsim, 
+                     prop_nao = propnao, 
+                     prop_abs = propabs)
+names(tabela_geral) = c("Instituto", "Nº de matriculados", "Amostra representativa", "Total de votos", "Total de sim", "Total de não", "Total de abstenções", "Proporção de sim", "Porporção de não", "Proporção de abstenções")
+
+```
+
+####Tabela classificada por institutos
+
+```{r, echo=FALSE}
+kable(tabela_geral)
+```
+
+```{r, include=FALSE}
+#tabela com o número de alunos por instituto
+tabela_areas = rbind(data.frame(area = 'EXATAS', Alunos = 8037),
+                          data.frame(area ='HUMANAS', Alunos = 3116),
+                          data.frame(area = 'BIOLOGICAS', Alunos = 2159))
+```
+
+```{r, include=FALSE}
+#tabela geral com informações das áreas
+tabela_AreasGeral = cbind(tabela_areas, 
+                     amos_repr = round(tam(tabela_areas$Alunos),0),
+                     total = totsimArea+totnaoArea+totabsArea,
+                     tot_sim = totsimArea, 
+                     tot_nao = totnaoArea, 
+                     tot_abs = totabsArea, 
+                     prop_sim = propsimArea, 
+                     prop_nao = propnaoArea, 
+                     prop_abs = propabsArea)
+names(tabela_AreasGeral) = c("Áreas", "Nº de matriculados", "Amostra representativa", "Total de votos", "Total de sim", "Total de não", "Total de abstenções", "Proporção de sim", "Porporção de não", "Proporção de abstenções")
+
+```
+
+####Tabela classificada por Áreas
+
+```{r, echo=FALSE}
+kable(tabela_AreasGeral)
+```
+
+##Gráficos
+
+A seguir, apresentamos os gráficos que representam a distribuição de votos por instituto, a divisão de votos por área de atuação e por fim a localização gerográfica de cada um dos institutos da UNICAMP.
+
+####Gráfico de votos por instituto
+
+
+```{r, include=FALSE}
+#grafico dos votos dos institutos
+#install.packages("plotly")
+library(plotly)
+```
+
+```{r grafico 1, echo=FALSE}
+par(mar=c(7, 7, 5, 2.1))
+f <- list( family = "Courier New, monospace", size = 18)
+g <- list( family = "Courier New, monospace", size = 22)
+x <- list( title = "Institutos", titlefont = f)
+y <- list( title = "Número de Votos", titlefont = f)
+m = list( l = 60, r = 50, b = 110, t = 110, pad = 4)
+
+graficoinstitutos <- plot_ly(x = c("IMECC", "FEM", "IFGW", "FEEC", "FEC", "FEA", "FCM",
+                                   "IFCH", "IE", "IEL", "IA", "FEF", "IC", "FEQ", "IB",
+                                   "IQ", "IG", "FEAGRI", "FE"),
+                             y = c(tabela_geral$`Total de sim`),
+                             name = "Sim",
+                             type = "bar")%>% layout(autosize = F, width = 1000, 
+                                                     height = 500, 
+                                                     title = "Votos por Instituto", 
+                                                     font = g , xaxis = x, yaxis = y,
+                                                     margin = m)
+
+
+graficoinstitutos2 <- add_trace(graficoinstitutos ,
+                                x = c("IMECC", "FEM", "IFGW", "FEEC", "FEC", "FEA", "FCM",
+                                      "IFCH","IE", "IEL", "IA", "FEF", "IC", "FEQ", "IB",
+                                      "IQ", "IG", "FEAGRI", "FE"),
+                                y = c(tabela_geral$`Total de não`),
+                                name = "Não",
+                                type = "bar")
+
+graficoinstitutos3 <- add_trace(graficoinstitutos2 ,
+                                x = c("IMECC", "FEM", "IFGW", "FEEC", "FEC", "FEA", "FCM",
+                                      "IFCH", "IE", "IEL", "IA", "FEF", "IC", "FEQ", "IB",
+                                      "IQ", "IG", "FEAGRI", "FE"),
+                                y = c(tabela_geral$`Total de abstenções`),
+                                name = "Abstenções",
+                                type = "bar")
+graficoinstitutos3
+```
+
+
+
+
+####Gráfico de votos por áreas
+
+
+
+
+```{r, echo=FALSE}
+#grafico dos votos das áreas
+h <- list( title = "Áreas", titlefont = f)
+
+graficoareas <- plot_ly(x = c("EXATAS", "HUMANAS", "BIOLOGICAS"),
+                             y = c(tabela_AreasGeral$`Total de sim`),
+                             name = "Sim",
+                             type = "bar") %>% layout(title = "Votos por Áreas",font = g,
+                                                      xaxis = h, yaxis = y,margin = m)
+
+
+graficoareas2 <- add_trace(graficoareas ,
+                                x = c("EXATAS", "HUMANAS", "BIOLOGICAS"),
+                                y = c(tabela_AreasGeral$`Total de não`),
+                                name = "Não",
+                                type = "bar")
+
+graficoareas3 <- add_trace(graficoareas2 ,
+                                x = c("EXATAS", "HUMANAS", "BIOLOGICAS"),
+                                y = c(tabela_AreasGeral$`Total de abstenções`),
+                                name = "Abstenções",
+                                type = "bar")
+graficoareas3
+
+```
+
+
+```{r plot_gauge, echo=FALSE, message= FALSE}
+
+## Gauge Plots
 tbl0 = subset(mytbl, nivel=='Graduacao')
 tbl0$pnao = round(tbl0$nao/tbl0$total*100, 0)
 gauge = gvisGauge(tbl0[, c('curso', 'pnao')], 'curso', 'nao',
                   options=list(min=0, max=100, greenFrom=0,
                                  greenTo=20, yellowFrom=40, yellowTo=60,
                                  redFrom=80, redTo=100, width=400, height=300))
+```
+
+
+```{r, echo=FALSE, message= FALSE}
 plot(gauge)
 ```
 
-## Obtenção de Dados Geográficos
+## Dados Geográficos
 
-Obter localizações (lat/lon) por meio do OpenStreet Maps:
+```{r enderecos, echo=FALSE}
+ends = data.frame(instituto=c('IMECC', 'FEM','FEF', 'IA', 'IEL', 'IFCH', 'IFGW', 'IQ',
+                              'IB', 'FEEC', 'FEQ', 'FE', 'IE', 'IC', 'FEC', 'FEAGRI',
+                              'FCM','IG', 'FEA'),
+           lat=c(-22.81583, -22.81938, -22.81476, -22.815127, -22.815121, -22.814924, 
+                 -22.816778, -22.818993, -22.819333, -22.821286, -22.820336, -22.816466, 
+                 -22.814952, -22.814663, -22.816503, -22.819405, -22.831345, -22.813084,
+                 -22.820475),
+           lon=c(-47.06769,-47.06592,-47.07333,-47.070112, -47.069397, -47.068303,
+                 -47.067328, -47.068038, -47.069402, -47.065894, -47.065617, -47.065728,
+                 -47.066153, -47.064811, -47.061943, -47.060955, -47.062188, -47.068574,
+                 -47.067189))
+```
 
-- Abrir OpenStreet Maps (OSM) em (http://www.openstreetmap.org/#map=16/-22.8173/-47.0677)
-- Dar zoom máximo no instituto de interesse
-- Olhar o endereço na barra de endereço após o zoom
-- Atualizar o data.frame abaixo com as informações
-
-```{r enderecos}
-ends = data.frame(instituto=c('IMECC', 'FEM', 'FEF'),
-           lat=c(-22.81583,-22.81938,-22.81476),
-           lon=c(-47.06769,-47.06592,-47.07333))
+```{r, echo=FALSE}
 map = leaflet()
 map = addTiles(map)
 map = addCircleMarkers(map, lat=ends$lat, lng=ends$lon, popup = ends$instituto)
 map
 ```
 
+
+
+
+
 ## Intervalos de Confiança
 
-```{r stats}
-p = with(mytbl, nao/(total))
-mes = qnorm(.975)*sqrt(1/(4*mytbl$total))
-ics = cbind(pmax(p-mes, 0), pmin(p+mes, 1))
-colnames(ics) = c("lower", "upper")
-mytbl$p = p
-mytbl = cbind(mytbl, ics)
+
+  Um Intervalo de Confiança (IC) é um intervalo estimado de algum parâmetro da população de interesse. Em vez de estimar o parâmetro por um único valor, estima-se um intervalo no qual espera-se que o parâmetro esteja inserido com certa taxa (%) de confiabilidade.
+  
+  Um IC de N% de confiança significa que, se fizermos 100 intervalos de confiança para um parâmetro, aproximadamente N destes intervalos conterão o valor real do parâmetro.
+  
+  Para o nosso caso, os parâmetros de interesse são: a proporção de 'Sim', a proporção de 'Não' e a proporção de 'Abstenho', dentre os votos do IMECC e de cada uma das áreas de atuação.
+  
+  
+```{r stats, echo=FALSE}
+#Intervalo de confiança para os votos do IMECC
+
+#Tabela para os cursos caracterizados como IMECC
+votosImecc = subset(mytbl, mytbl$instituto=="IMECC")
+TotalT = sum(votosImecc$total) #total de votos 
+PropSim = with(votosImecc, sum(sim)/sum(total))#Proporção de voto sim
+PropNao = with(votosImecc, sum(nao)/sum(total))#proporção de voto não
+PropAbs = with(votosImecc, sum(abstencao)/sum(total))#proporção de abstebnções
+
+#Ic para a proporção de votos Sim no IMECC
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icSim = cbind(pmax(PropSim-mes, 0), pmin(PropSim+mes, 1))
+
+#Ic para a proporção de votos Não no IMECC
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icNao = cbind(pmax(PropNao-mes, 0), pmin(PropNao+mes, 1))
+
+#Ic para a proporção de abstenção no IMECC
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icAbs = cbind(pmax(PropAbs-mes, 0), pmin(PropAbs+mes, 1))
 ```
+
+####Intervalo de confiança - IMECC
+
+Fazendo os Intervalos de confiança para a proporção de votos do IMECC, esperamos que:
+
+- A proporção de sim esteja 95% das vezes nesse intervalo: `r icSim`.
+
+- A proporção de não esteja 95% das vezes nesse intervalo: `r icNao`.
+
+- A proporção de abstenções esteja 95% das vezes nesse intervalo: `r icAbs`.
+
+```{r, echo=FALSE}
+#Intervalo de confiança para os votos dos cursos da área de Exatas 
+
+#tabela apenas para os cursos categorizados como Exatas
+VotosExatas = subset(mytbl, mytbl$area=="Exatas")
+TotalT = sum(VotosExatas$total)#total de votos
+PropSim = with(VotosExatas, sum(sim)/sum(total))#proporção de votos sim 
+PropNao = with(VotosExatas, sum(nao)/sum(total))#proporção de votos não
+PropAbs = with(votosImecc, sum(abstencao)/sum(total))#proporção de abstenção
+
+#Ic para a proporção de votos Sim na área de exatas
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icSim = cbind(pmax(PropSim-mes, 0), pmin(PropSim+mes, 1))
+
+#Ic para a proporção de votos Não na área de exatas
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icNao = cbind(pmax(PropNao-mes, 0), pmin(PropNao+mes, 1))
+
+#Ic para a proporção de abstenção na área de exatas
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icAbs = cbind(pmax(PropAbs-mes, 0), pmin(PropAbs+mes, 1))
+```
+
+####Intervalo de confiança - EXATAS
+
+Fazendo os Intervalos de confiança para a proporção de votos dos cursos da área de Exatas, esperamos que:
+
+- A proporção de sim esteja 95% das vezes nesse intervalo: `r icSim`.
+
+- A proporção de não esteja 95% das vezes nesse intervalo: `r icNao`.
+
+- A proporção de abstenções esteja 95% das vezes nesse intervalo: `r icAbs`.
+
+```{r, echo=FALSE}
+#Intervalo de confiança para os votos dos cursos da área de biológicas
+
+#Tabela para os cursos caracterizados da área de biológicas
+VotosBiologicas = subset(mytbl, mytbl$area=="Biologicas")
+TotalT = sum(VotosBiologicas$total) #total de votos 
+PropSim = with(VotosBiologicas, sum(sim)/sum(total))#Proporção de voto sim
+PropNao = with(VotosBiologicas, sum(nao)/sum(total))#proporção de voto não
+PropAbs = with(VotosBiologicas, sum(abstencao)/sum(total))#proporção de abstebnções
+
+#Ic para a proporção de votos Sim da área de biológicas 
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icSim = cbind(pmax(PropSim-mes, 0), pmin(PropSim+mes, 1))
+
+#Ic para a proporção de votos Não da área de biológicas
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icNao = cbind(pmax(PropNao-mes, 0), pmin(PropNao+mes, 1))
+
+#Ic para a proporção de abstenção da área de biológicas
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icAbs = cbind(pmax(PropAbs-mes, 0), pmin(PropAbs+mes, 1))
+
+```
+
+####Intervalo de confiança - BIOLÓGICAS 
+
+Fazendo os Intervalos de confiança para a proporção de votos dos cursos da área de Biológicas, esperamos que:
+
+- A proporção de sim esteja 95% das vezes nesse intervalo: `r icSim`.
+
+- A proporção de não esteja 95% das vezes nesse intervalo: `r icNao`.
+
+- A proporção de abstenções esteja 95% das vezes nesse intervalo: `r icAbs`.
+
+```{r, echo=FALSE}
+#Intervalo de confiança para os votos dos cursos da área de humanas
+
+#Tabela para os cursos caracterizados da área de humanas
+VotosHumanas = subset(mytbl, mytbl$area=="Humanas")
+TotalT = sum(VotosHumanas$total) #total de votos 
+PropSim = with(VotosHumanas, sum(sim)/sum(total))#Proporção de voto sim
+PropNao = with(VotosHumanas, sum(nao)/sum(total))#proporção de voto não
+PropAbs = with(VotosHumanas, sum(abstencao)/sum(total))#proporção de abstebnções
+
+#Ic para a proporção de votos Sim da área de humanas 
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icSim = cbind(pmax(PropSim-mes, 0), pmin(PropSim+mes, 1))
+
+#Ic para a proporção de votos Não da área de humanas
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icNao = cbind(pmax(PropNao-mes, 0), pmin(PropNao+mes, 1))
+
+#Ic para a proporção de abstenção da área de humanas
+mes = qnorm(.975)*sqrt(1/(4*TotalT))
+icAbs = cbind(pmax(PropAbs-mes, 0), pmin(PropAbs+mes, 1))
+
+```
+
+####Intervalo de confiança - HUMANAS
+
+Fazendo os Intervalos de confiança para a proporção de votos dos cursos da área de Humanas, esperamos que:
+
+- A proporção de sim esteja 95% das vezes nesse intervalo: `r icSim`.
+
+- A proporção de não esteja 95% das vezes nesse intervalo: `r icNao`.
+
+- A proporção de abstenções esteja 95% das vezes nesse intervalo: `r icAbs`.
+
+
+##Testes de Hipóteses
+
+  Um teste de hipóteses é um procedimento estatístico baseado na análise de uma amostra, no qual temos duas hipóteses sobre a população: uma hipótese nula, denotada $H_0$ e uma hipótese alternativa, denotada $H_1$. Além disso, todo teste também contém uma região crítica.
+  
+  Usando uma *estatística do teste*, uma função dos dados da amostra, tentamos sempre desprovar $H_0$ em favor de $H_1$. Se a estatística do teste calculada pertencer à região crítica, rejeitamos $H_0$ em favor de $H_1$. Caso contrário, não podemos rejeitar $H_0$.
+  
+  A seguir, serão feitos dois testes de hipóteses: um para a proporção de votos na UNICAMP, e outro para a proporção de votos no IMECC.
+
+
+####Teste de Hipótese para a proporção de votos na UNICAMP
+
+  Como citado no início, existem muitas dúvidas quanto a representatividade das assembleias, isso porque grande parte não pode comparecer, por diversos motivos.
+  
+  Para verificar se de fato a maior proporção de estudantes da UNICAMP é a favor da greve,vamos realizar um teste de hipótese comparando a proporção de votos sim com a proporção de votos não.
+  
+  
+  Vamos definir como:
+  
+  - $p_{suni}$ é a proporção de votos sim da UNICAMP.
+  
+  - $p_{nuni}$ é a proporção de votos não da UNICAMP.
+  
+  EntÃo temos nosso teste definido com as segintes hipoteses:
+  
+  $H_0$:  $p_{nuni}$ $\leq$ $p_{suni}$
+  
+  $H_1$: $p_{nuni}$  > $p_{suni}$
+  
+  
+    
+```{r THUnicamp, include=FALSE}
+
+simUnicamp=round(with(mytbl,sum(mytbl$sim)/sum(mytbl$total)),digits = 2)
+naoUnicamp=round(with(mytbl,sum(mytbl$nao)/sum(mytbl$total)),digits = 2)
+difprop=naoUnicamp - simUnicamp
+varp1=naoUnicamp*(1 -naoUnicamp)/sum(mytbl$total)
+varp2=simUnicamp*(1- simUnicamp)/sum(mytbl$total)
+vartot=varp1+varp2
+estatTeste = round(difprop/sqrt(vartot),digits = 2)
+zobs=round(qnorm(0.95),digits = 2)
+
+```
+
+
+Após realizarmos o teste podemos observar que a estatística do teste apresenta o valor de `r estatTeste` que é maior que o nosso valor z = `r zobs`, o que nos leva a rejeitar a hipóteste nula.  Enquanto o valor da estatitstica do teste for maior que o $z_{obs}$ iremos rejeitar a hipótese nula, ou seja rejeitar o fato que a proporção de votos não é menor que a de votos sim.
+
+####Teste de Hipótese para proporção de votos no IMECC
+
+  Nas últimas semanas o Instituto De Matemática, Estatística e Computação Científica foi fortemente afetado pelos piquetes, manifestçoẽs e também por quentes discussoẽs entre os docentes do instituto, que queriam ministrar suas aulas para alunos que tinham interesse nas mesmas e alegavam não ser a favor da greve, e os grevistas, que com piquetes impediam os mesmos de exercerem suas atividades, alegando que estariam "desrepeitando" o movimento grevista.
+  
+  Para verificar a posição dos alunos do instituto em relação a greve vamos utilizar o mesmo procedimento estatístico que foi utilizado para o geral da UNICAMP.
+  
+  Iremos definir como:
+  
+  -$p_{simImecc}$ como a proporção de votos sim do IMECC
+  
+  -$p_{naoImecc}$ como a proporção de votos não do IMECC
+  
+  Assim formulamos as seguintes hipóteses:
+  
+  $H_0$: $p_{naoImecc}$ $\leq$ $p_{simImecc}$
+  
+  $H_1$: $p_{naoImecc}$ > $p_{simImecc}$
+    
+```{r THImecc, include=FALSE}
+#proporção de votos sim no imecc:
+simImecc=round(with(votosImecc,sum(votosImecc$sim)/sum(votosImecc$total)),digits = 2)
+#proporção de votos não no imecc:
+naoImecc=round(with(votosImecc,sum(votosImecc$nao)/sum(votosImecc$total)),digits = 2)
+#diferença entre proporçao de sim e nao:
+difpropImecc=naoImecc-simImecc
+
+varsimImecc= round((simImecc*(1-simImecc))/sum(votosImecc$total),digits = 4)
+varnaoImecc= round((naoImecc*(1-naoImecc))/sum(votosImecc$total),digits = 4)
+varImecc=varnaoImecc+varnaoImecc
+sdImecc=sqrt(varImecc)
+estatTesteImecc=round(difpropImecc/sdImecc,digits = 4)
+zobs=round(qnorm(0.95),digits = 2)
+
+
+
+```
+
+Os dados utilizados para a realizaçao do teste estao na tabela abaixo:
+```{r, echo=FALSE}
+kable(votosImecc)
+
+```
+
+
+Após realizarmos o teste podemos observar que a estatística do teste apresenta o valor de `r estatTesteImecc` que é maior que o nosso valor Z = `r zobs`, o que nos leva a rejeitar a hipóteste nula.  Enquanto o valor da estatÍstica do teste for maior que o $z_{obs}$ iremos rejeitar a hipótese nula, ou seja rejeitar o fato que a proporção de votos não é menor que a de votos sim.
