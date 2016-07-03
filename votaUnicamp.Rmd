@@ -17,6 +17,13 @@ output: html_document
 
   Este trabalho tem como objetivo analisar estatisticamente sob diferentes ângulos os resultados presentes no já citado site *Vota* *UNICAMP*. O principal tópico a ser analisado é a comparação dos comportamentos dos estudantes de diferentes institutos e áreas de atuação (exatas, humanas ou biológicas) com relação ao posicionamento em relação à greve. Para isso, serão utilizados procedimentos estatísticos como testes de hipóteses e intervalos de confiança, além de gráficos, para melhor visualização dos dados, a serem mais detalhadamente explicados posteriormente.
 
+```{r}
+#Rode o código abaixo, caso dê erro no pacote "knit"
+
+#packageurl <- "http://cran.r-project.org/src/contrib/Archive/knitr/knitr_1.12.tar.gz"
+#install.packages(packageurl, repos=NULL, type="source")
+
+```
 
 ```{r input, message = FALSE, warning = FALSE, echo = F, include = F}
 #setup
